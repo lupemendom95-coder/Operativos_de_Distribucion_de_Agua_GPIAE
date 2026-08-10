@@ -2980,7 +2980,44 @@ function renderViajesTable() {
                 if (cloudData) {
                     if (Array.isArray(cloudData.viajes)) { baseViajes = cloudData.viajes; localStorage.setItem('h2o_viajes', JSON.stringify(baseViajes)); }
                     if (Array.isArray(cloudData.unidades)) { baseUnidades = cloudData.unidades; localStorage.setItem('h2o_unidades', JSON.stringify(baseUnidades)); }
-                    if (Array.isArray(cloudData.usuarios)) { baseUsuarios = cloudData.usuarios; localStorage.setItem('h2o_usuarios', JSON.stringify(baseUsuarios)); }
+                  //if (Array.isArray(cloudData.usuarios)) { baseUsuarios = cloudData.usuarios; localStorage.setItem('h2o_usuarios', JSON.stringify(baseUsuarios)); }
+
+                  if (Array.isArray(cloudData.usuarios)) { 
+    baseUsuarios = cloudData.usuarios; 
+    
+    // Verificar si existe la cuenta admin; si no existe o viene vacía, reinsertarla automáticamente
+    const hasAdmin = baseUsuarios.some(u => u.usuario === 'admin');
+    if (!hasAdmin) {
+        baseUsuarios.unshift({
+            id: 'U-ADMIN',
+            usuario: 'admin',
+            clave: 'agua2026',
+            rol: 'admin',
+            nombre: 'Administrador Principal',
+            telefono: '555-0100',
+            unidadAsignada: '',
+            activo: true
+        });
+    }
+    
+    localStorage.setItem('h2o_usuarios', JSON.stringify(baseUsuarios)); 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     if (Array.isArray(cloudData.operativos)) { baseOperativos = cloudData.operativos; localStorage.setItem('h2o_operativos', JSON.stringify(baseOperativos)); }
                     
                     if (Array.isArray(cloudData.tipos_instalacion)) { 
