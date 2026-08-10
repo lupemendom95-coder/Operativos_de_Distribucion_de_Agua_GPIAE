@@ -657,7 +657,7 @@
             <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 <div>
                     <h3 class="text-base md:text-lg font-bold">Base_Suministro_Agua</h3>
-                    <p class="text-[10px] text-slate-400 mt-0.5">Enlace en la nube: <span id="sheets-link-text" class="text-emerald-400 font-mono">Modo Local (Demo)</span></p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">Enlace en la nube: <span id="sheets-link-text" class="text-emerald-400 font-mono"> En linea </span></p>
                 </div>
                 <button onclick="exportToCSV()" class="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-lg active-tap">
                     <i class="fa-solid fa-download text-xs"></i>
@@ -690,7 +690,7 @@
                                 <th class="border-r border-slate-300 px-3 py-1.5">Municipio</th>
                                 <th class="border-r border-slate-300 px-3 py-1.5">Colonia</th>
                                 <th class="border-r border-slate-300 px-3 py-1.5">Habitantes</th>
-                                <th class="border-r border-slate-300 px-3 py-1.5">Evidencias</th>
+                                <!--th class="border-r border-slate-300 px-3 py-1.5">Evidencias</th> // eliminado-->
                                 <th class="px-3 py-1.5">Observaciones</th>
                             </tr>
                         </thead>
@@ -852,7 +852,7 @@ if (data.action === "save_trip") {
   // para que tu script las inserte en las columnas correctas ("Fotografía", "fotoUrl", etc.)
   data.fotografia = urlsJoined;
   data.fotoUrl = urlsJoined;
-  data.evidencias = urlsJoined;
+  //---data.evidencias = urlsJoined;
 }</textarea>
                 </div>
 
@@ -1613,30 +1613,93 @@ if (data.action === "save_trip") {
             });
         }
 
-        function getCurrentLocation() {
-            if (!navigator.geolocation) {
-                fallbackToIPGeolocation("Dispositivo incompatible con GPS nativo.");
-                return;
+
+
+
+        
+      // Función para capturar la ubicación GPS real del dispositivo y escribirla en id="field-ubicacion"
+function getCurrentLocation() {
+    if (!navigator.geolocation) {
+        notify('Error de GPS', 'Tu dispositivo o navegador no soporta la detección de ubicación.', 'error');
+        if (typeof fallbackToIPGeolocation === 'function') fallbackToIPGeolocation();
+        return;
+    }
+
+    const gpsOptions = {
+        enableHighAccuracy: true,  // Fuerza el uso del hardware GPS real (alta precisión)
+        timeout: 10000,            // Tiempo máximo de espera (10 segundos)
+        maximumAge: 0              // Obliga a tomar una lectura fresca en tiempo real
+    };
+
+    notify('Buscando GPS', 'Adquiriendo señal satelital en tiempo real...', 'info');
+
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+
+            // 1. Formatear la coordenada con 6 decimales de precisión
+            const coordenadaString = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+            // 2. VINCULACIÓN DIRECTA AL ID: "field-ubicacion"
+            const inputUbicacion = document.getElementById('field-ubicacion');
+            
+            if (inputUbicacion) {
+                inputUbicacion.value = coordenadaString;
+                // Forzar eventos de actualización por si la app valida el campo al escribir
+                inputUbicacion.dispatchEvent(new Event('input'));
+                inputUbicacion.dispatchEvent(new Event('change'));
+            } else {
+                console.error("Error del sistema: No se encontró ningún cuadro de texto con el id='field-ubicacion' en el HTML.");
             }
-            notify('Ubicando...', 'Consultando satélites...', 'info');
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const lat = position.coords.latitude.toFixed(6);
-                    const lng = position.coords.longitude.toFixed(6);
-                    document.getElementById('field-ubicacion').value = `${lat}, ${lng}`;
-                    const latlng = [parseFloat(lat), parseFloat(lng)];
-                    formMap.setView(latlng, 15);
-                    if (currentMarker) currentMarker.setLatLng(latlng);
-                    else currentMarker = L.marker(latlng, { draggable: true }).addTo(formMap);
-                    notify('Ubicación Detectada', `Coordenadas: ${lat}, ${lng}`, 'success');
-                },
-                (error) => {
-                    console.warn("Falla de Geolocalización nativa, activando respaldo IP...", error);
-                    fallbackToIPGeolocation();
-                },
-                { enableHighAccuracy: true, timeout: 6000 }
-            );
-        }
+
+            // 3. Colocar o mover el Pin (Marcador) en el mapa del formulario
+            if (typeof formMap !== 'undefined' && formMap) {
+                // Remover el pin anterior si el operador ya había presionado el botón antes
+                if (typeof currentMarker !== 'undefined' && currentMarker) {
+                    formMap.removeLayer(currentMarker);
+                }
+                
+                // Centrar el mapa con un zoom cerrado (calibrado en 17)
+                formMap.setView([lat, lng], 17);
+                
+                // Crear y añadir el nuevo pin al mapa
+                if (typeof L !== 'undefined') {
+                    currentMarker = L.marker([lat, lng]).addTo(formMap)
+                        .bindPopup(`<b>Ubicación de Entrega</b><br>Coordenadas: ${coordenadaString}<br>Margen de error: +/- ${Math.round(accuracy)}m`)
+                        .openPopup();
+                }
+            }
+
+            notify('Ubicación Exacta', `GPS Vinculado y cuadro de texto actualizado (+/- ${Math.round(accuracy)}m)`, 'success');
+        },
+        function(error) {
+            let mensajeError = 'No se pudo obtener la ubicación.';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    mensajeError = "Permiso denegado. Activa el acceso al GPS en los permisos de tu navegador o celular.";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    mensajeError = "Señal de GPS no disponible. Asegúrate de tener los datos activos o estar en un espacio abierto.";
+                    break;
+                case error.TIMEOUT:
+                    mensajeError = "Se agotó el tiempo de espera para recibir señal GPS. Intenta de nuevo.";
+                    break;
+            }
+            notify('Falla de GPS', mensajeError, 'error');
+            
+            if (typeof fallbackToIPGeolocation === 'function') {
+                fallbackToIPGeolocation();
+            }
+        },
+        gpsOptions
+    );
+}
+
+
+
+
 
         function fallbackToIPGeolocation() {
             fetch('https://ipapi.co/json/')
@@ -1872,63 +1935,52 @@ if (data.action === "save_trip") {
             document.getElementById('kpi-habitantes').innerText = totalHabitantes.toLocaleString('en-US');
             document.getElementById('kpi-unidades').innerText = unidadesActivas;
         }
+// ------------------modificado ------------------- 
+       
+function renderViajesTable() {
+    const tbody = document.getElementById('sheets-table-body');
+    if (!tbody) return; 
+    tbody.innerHTML = '';
 
-        // --- TABLA DE RESULTADOS INTERACTIVOS ---
-        function renderViajesTable() {
-            const tbody = document.getElementById('sheets-table-body');
-            if (!tbody) return; tbody.innerHTML = '';
+    const filtered = getFilteredViajes();
 
-            const filtered = getFilteredViajes();
-
-            filtered.forEach((v, index) => {
-                let fechaLegible = "Sin fecha";
-                if (v.fecha) {
-                    const dateObj = new Date(v.fecha);
-                    if (!isNaN(dateObj.getTime())) fechaLegible = dateObj.toLocaleDateString('es-MX') + ' ' + dateObj.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-                }
-                const opName = baseOperativos.find(o => o.id === v.operativoId)?.nombre || 'General';
-                
-                // MEJORA 3: VALIDADOR DE FOTOGRAFÍAS CON RESPALDO LOCAL PARA EVITAR "SIN FOTO"
-                const photoData = v.fotoUrl || v.fotografia || v.evidencias || '';
-                let urls = [];
-                if (photoData && photoData !== 'Sin Foto' && photoData !== 'Subiendo...') {
-                    urls = photoData.split(' | ').filter(Boolean);
-                } else if (v.fotos && v.fotos.length > 0) {
-                    urls = v.fotos.map(f => f.base64);
-                }
-
-                let btnsHtml = '';
-                if (urls.length > 0) {
-                    urls.forEach((url, uIndex) => { 
-                        btnsHtml += `<button onclick="viewEvidence('${url}', '${v.id}', ${uIndex + 1})" class="bg-emerald-50 text-emerald-800 border border-emerald-300 py-1 px-3 rounded-lg mr-1 text-xs font-bold whitespace-nowrap active-tap">Evid. ${uIndex + 1}</button>`; 
-                    });
-                } else {
-                    btnsHtml = '<span class="text-slate-400 italic">Sin fotos</span>';
-                }
-
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-50 text-slate-800">
-                        <td class="px-3 py-2 text-center font-bold text-slate-400 bg-slate-100">${index + 1}</td>
-                        <td class="px-3 py-2 font-mono font-bold">${v.id || 'N/A'}</td>
-                        <td class="px-3 py-2 text-primary-600 font-bold">${opName}</td>
-                        <td class="px-3 py-2 text-[11px]">${fechaLegible}</td>
-                        <td class="px-3 py-2 font-bold">${v.operador || 'No especificado'}</td>
-                        <td class="px-3 py-2 text-center font-bold">${v.economico || 'N/A'}</td>
-                        <td class="px-3 py-2 text-center font-mono">${v.placa || 'N/A'}</td>
-                        <td class="px-3 py-2 text-primary-600 font-mono text-xs hover:underline cursor-pointer font-bold" onclick="showLocation('${v.ubicacion}')">${v.ubicacion || 'Sin GPS'}</td>
-                        <td class="px-3 py-2 text-center font-black">${v.viajesRealizados || 1}</td>
-                        <td class="px-3 py-2 text-right font-mono font-black text-sky-700">${parseFloat(v.litros || 0).toLocaleString('en-US', {maximumFractionDigits:2})} L</td>
-                        <td class="px-3 py-2 font-medium">${v.tipoInstalacion || 'Comunitario'}</td>
-                        <td class="px-3 py-2">${v.estado || ''}</td>
-                        <td class="px-3 py-2">${v.municipio || ''}</td>
-                        <td class="px-3 py-2 font-semibold text-slate-900">${v.colonia || ''}</td>
-                        <td class="px-3 py-2 text-right font-mono">${(v.habitantes || 0).toLocaleString('en-US')} hab.</td>
-                        <td class="px-3 py-2 text-center"><div class="flex flex-wrap gap-1 justify-center">${btnsHtml}</div></td>
-                        <td class="px-3 py-2 italic text-slate-500 truncate max-w-[150px]">${v.observaciones || ''}</td>
-                    </tr>
-                `;
-            });
+    filtered.forEach((v, index) => {
+        let fechaLegible = "Sin fecha";
+        if (v.fecha) {
+            const dateObj = new Date(v.fecha);
+            if (!isNaN(dateObj.getTime())) {
+                fechaLegible = dateObj.toLocaleDateString('es-MX') + ' ' + dateObj.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+            }
         }
+        
+        const opName = (typeof baseOperativos !== 'undefined' && baseOperativos.find(o => o.id === v.operativoId)?.nombre) || 'General';
+
+        tbody.innerHTML += `
+            <tr class="hover:bg-slate-50 text-slate-800 transition-colors duration-150">
+                <td class="px-3 py-2 text-center font-bold text-slate-400 bg-slate-100">${index + 1}</td>
+                <td class="px-3 py-2 font-mono font-bold">${v.id || 'N/A'}</td>
+                <td class="px-3 py-2 text-primary-600 font-bold">${opName}</td>
+                <td class="px-3 py-2 text-[11px]">${fechaLegible}</td>
+                <td class="px-3 py-2 font-bold">${v.operador || 'No especificado'}</td>
+                <td class="px-3 py-2 text-center font-bold">${v.economico || 'N/A'}</td>
+                <td class="px-3 py-2 text-center font-mono">${v.placa || 'N/A'}</td>
+                <td class="px-3 py-2 text-primary-600 font-mono text-xs hover:underline cursor-pointer font-bold" onclick="showLocation('${v.ubicacion}')">
+                    <i class="fa-solid fa-location-dot mr-1"></i>${v.ubicacion || 'Sin GPS'}
+                </td>
+                <td class="px-3 py-2 text-center font-black">${v.viajesRealizados || 1}</td>
+                <td class="px-3 py-2 text-right font-mono font-black text-sky-700">${parseFloat(v.litros || 0).toLocaleString('en-US', {maximumFractionDigits:2})} L</td>
+                <td class="px-3 py-2 font-medium">${v.tipoInstalacion || 'Comunitario'}</td>
+                <td class="px-3 py-2">${v.estado || ''}</td>
+                <td class="px-3 py-2">${v.municipio || ''}</td>
+                <td class="px-3 py-2 font-semibold text-slate-900">${v.colonia || ''}</td>
+                <td class="px-3 py-2 text-right font-mono">${(v.habitantes || 0).toLocaleString('en-US')} hab.</td>
+                <td class="px-3 py-2 italic text-slate-500 truncate max-w-[150px]" title="${v.observaciones || ''}">${v.observaciones || ''}</td>
+            </tr>
+        `;
+    });
+}
+
+        // ------------------aqui termina modificado ------------------- 
 
         let dashboardMarkersGroup = L.layerGroup();
         function renderDashboardMarkers() {
