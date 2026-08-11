@@ -1397,20 +1397,31 @@ if (data.action === "save_trip") {
 function handleLogin(event) {
     event.preventDefault();
     const user = document.getElementById('login-user').value.trim().toLowerCase();
-    const pass = document.getElementById('login-pass').value;
+    const pass = document.getElementById('login-pass').value.trim();
 
-    // Resguardo si baseUsuarios está vacío o sin admin
+    // Resguardo si baseUsuarios no está cargado correctamente
     if (!baseUsuarios || baseUsuarios.length === 0) {
         baseUsuarios = [
             { id: 'U-ADMIN', usuario: 'admin', clave: 'agua2026', rol: 'admin', nombre: 'Administrador Principal', activo: true }
         ];
     }
 
-    let matchedUser = baseUsuarios.find(u => u.usuario === user && u.clave === pass);
+    // Comparación insensible a mayúsculas/minúsculas en el usuario
+    let matchedUser = baseUsuarios.find(u => 
+        String(u.usuario).trim().toLowerCase() === user && 
+        String(u.clave).trim() === pass
+    );
 
-    // Acceso maestro de emergencia para admin
+    // Acceso maestro de emergencia directo para admin
     if (!matchedUser && user === 'admin' && pass === 'agua2026') {
-        matchedUser = { id: 'U-ADMIN', usuario: 'admin', clave: 'agua2026', rol: 'admin', nombre: 'Administrador Principal', activo: true };
+        matchedUser = { 
+            id: 'U-ADMIN', 
+            usuario: 'admin', 
+            clave: 'agua2026', 
+            rol: 'admin', 
+            nombre: 'Administrador Principal', 
+            activo: true 
+        };
     }
 
     if (matchedUser) {
@@ -1439,7 +1450,6 @@ function handleLogin(event) {
         notify('Credenciales Incorrectas', 'Verifique sus datos de ingreso.', 'error');
     }
 }
-
         function showCloudDiagnostics(url) {
             const area = document.getElementById('diagnostics-test-area');
             if (area) area.classList.remove('hidden');
