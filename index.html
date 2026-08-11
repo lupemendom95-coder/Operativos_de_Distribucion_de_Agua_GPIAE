@@ -1013,13 +1013,13 @@ if (data.action === "save_trip") {
                     <button type="button" onclick="closeModal()" class="px-4 py-2.5 border border-slate-800 hover:bg-slate-800 rounded-xl font-semibold text-slate-300">Cancelar</button>
                     <button type="submit" class="px-5 py-2.5 bg-primary-500 hover:bg-primary-600 rounded-xl font-bold text-white">Guardar</button>
                 </div>
-            </form>
+            </form> 
         </div>
     </div>
 
     <!-- SCRIPT PRINCIPAL DE COMPORTAMIENTO -->
     <script>
-        const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbzwz4gfx3j-kaXTFcFAL5_K0owfVQu-NWBMletnvBkgFYh0pSE-W1bv51mg78BQG2OCbw/exec"; 
+        const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbzwz4gfx3j-kaXTFcFAL5_K0owfVQu-NWBMletnvBkgFYh0pSE-W1bv51mg78BQG2OCbw/exec";
         const DEFAULT_SHEETS_URL = "https://docs.google.com/spreadsheets/d/1zw_trHXJ7cC0s3yXkYt_TMPb_YnSulydOEQ9L6A3qbw/edit";
         
         const CONTRAST_COLORS = [
@@ -2932,15 +2932,20 @@ function handleLogin(event) {
         ping.className = "w-2 h-2 rounded-full bg-sky-400 animate-ping";
         badgeText.innerText = "Sincronizando...";
     }
-    if (badgeMobile) {
-        badgeMobile.className = "w-3 h-3 rounded-full bg-sky-400 animate-pulse";
-        badgeMobile.title = "Sincronizando...";
-    }
 
     const separator = cleanedUrl.includes('?') ? '&' : '?';
+    // Se añade timestamp para romper caché de navegadores secundarios
     const cleanFetchUrl = `${cleanedUrl}${separator}action=get_all&_t=${Date.now()}`;
 
-    fetch(cleanFetchUrl, { method: 'GET', redirect: 'follow' })
+    // PETICIÓN COMPATIBLE MULTI-NAVEGADOR
+    fetch(cleanFetchUrl, { 
+        method: 'GET',
+        mode: 'cors',
+        redirect: 'follow',
+        headers: {
+            'Accept': 'application/json'
+        }
+    })
     .then(res => {
         if (!res.ok) throw new Error("Servidor Google no responde");
         return res.json();
@@ -2950,7 +2955,7 @@ function handleLogin(event) {
         if (syncIconMobile) syncIconMobile.classList.remove('animate-spin');
 
         if (cloudData && cloudData.status === "success") {
-            // Mapeo y Mapeo de campos para Viajes (Homologación de llaves con mayúsculas/espacios)
+            // Mapeo de Viajes
             if (Array.isArray(cloudData.viajes)) {
                 baseViajes = cloudData.viajes.map(v => ({
                     id: v["ID Viaje"] || v.id || v.ID || 'V-000',
@@ -2973,7 +2978,7 @@ function handleLogin(event) {
                 localStorage.setItem('h2o_viajes', JSON.stringify(baseViajes));
             }
 
-            // Normalización de Unidades
+            // Mapeo de Unidades
             if (Array.isArray(cloudData.unidades)) {
                 baseUnidades = cloudData.unidades.map(u => ({
                     id: u.ID || u.id || '',
@@ -2984,7 +2989,7 @@ function handleLogin(event) {
                 localStorage.setItem('h2o_unidades', JSON.stringify(baseUnidades));
             }
 
-            // Normalización de Usuarios
+            // Mapeo de Usuarios
             if (Array.isArray(cloudData.usuarios) && cloudData.usuarios.length > 0) { 
                 baseUsuarios = cloudData.usuarios.map(u => ({
                     id: u.id || u.ID || '',
@@ -2996,14 +3001,10 @@ function handleLogin(event) {
                     unidadAsignada: u.unidadAsignada || '',
                     activo: u.activo !== false
                 }));
-            } else {
-                baseUsuarios = [
-                    { id: 'U-ADMIN', usuario: 'admin', clave: 'agua2026', rol: 'admin', nombre: 'Administrador Principal', activo: true }
-                ];
             }
             localStorage.setItem('h2o_usuarios', JSON.stringify(baseUsuarios));
 
-            // Normalización de Operativos
+            // Mapeo de Operativos
             if (Array.isArray(cloudData.operativos)) {
                 baseOperativos = cloudData.operativos.map(op => ({
                     id: op.ID || op.id || '',
@@ -3018,7 +3019,6 @@ function handleLogin(event) {
                 localStorage.setItem('h2o_operativos', JSON.stringify(baseOperativos));
             }
 
-            // Normalización de Tipos de Instalación
             if (Array.isArray(cloudData.tipos_instalacion)) { 
                 baseTiposInstalacion = cloudData.tipos_instalacion.map(t => typeof t === 'object' ? (t.Nombre || t.nombre) : t); 
                 localStorage.setItem('h2o_tipos_instalacion', JSON.stringify(baseTiposInstalacion)); 
@@ -3028,24 +3028,13 @@ function handleLogin(event) {
                 baseGeografia = cloudData.geografia; 
                 localStorage.setItem('h2o_geografia', JSON.stringify(baseGeografia)); 
             }
-            
-            if (cloudData.brandConfig) {
-                applyBrandSettings(cloudData.brandConfig);
-            }
 
             renderAll();
-            
-            const diagnosticsArea = document.getElementById('diagnostics-test-area');
-            if (diagnosticsArea) diagnosticsArea.classList.add('hidden');
 
             if (badge && badgeText && ping) {
                 badge.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 transition-colors duration-300";
                 ping.className = "w-2 h-2 rounded-full bg-emerald-400";
                 badgeText.innerText = "Sincronizado";
-            }
-            if (badgeMobile) {
-                badgeMobile.className = "w-3 h-3 rounded-full bg-emerald-400";
-                badgeMobile.title = "Sincronizado";
             }
             if (sheetsStatus) {
                 sheetsStatus.innerText = 'Conectado';
@@ -3064,17 +3053,15 @@ function handleLogin(event) {
             ping.className = "w-2 h-2 rounded-full bg-rose-400 animate-pulse";
             badgeText.innerText = "Error Conexión";
         }
-        if (badgeMobile) {
-            badgeMobile.className = "w-3 h-3 rounded-full bg-rose-400 animate-pulse";
-            badgeMobile.title = "Error Conexión";
-        }
         if (sheetsStatus) {
             sheetsStatus.innerText = 'Error de Red';
             sheetsStatus.className = 'text-rose-400 font-mono';
         }
-        notify('Error de Conexión', 'Ocurrió un detalle al procesar la respuesta del servidor.', 'error');
+        notify('Error de Conexión', 'Compruebe la configuración de red o enlace de Apps Script.', 'error');
     });
 }
+
+
         // --- PREVISUALIZADOR MULTI-IMAGEN ---
         function previewImages(event) {
             const files = event.target.files;
