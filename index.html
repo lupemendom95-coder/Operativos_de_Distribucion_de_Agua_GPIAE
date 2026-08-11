@@ -1393,39 +1393,52 @@ if (data.action === "save_trip") {
             }
         }
 
-        function handleLogin(event) {
-            event.preventDefault();
-            const user = document.getElementById('login-user').value.trim().toLowerCase();
-            const pass = document.getElementById('login-pass').value;
+// Reemplaza handleLogin con esta versión con credencial maestra de emergencia:
+function handleLogin(event) {
+    event.preventDefault();
+    const user = document.getElementById('login-user').value.trim().toLowerCase();
+    const pass = document.getElementById('login-pass').value;
 
-            const matchedUser = baseUsuarios.find(u => u.usuario === user && u.clave === pass);
+    // Resguardo si baseUsuarios está vacío o sin admin
+    if (!baseUsuarios || baseUsuarios.length === 0) {
+        baseUsuarios = [
+            { id: 'U-ADMIN', usuario: 'admin', clave: 'agua2026', rol: 'admin', nombre: 'Administrador Principal', activo: true }
+        ];
+    }
 
-            if (matchedUser) {
-                if (matchedUser.activo === false) {
-                    notify('Acceso Denegado', 'Esta cuenta se encuentra actualmente suspendida por el administrador.', 'error');
-                    return;
-                }
+    let matchedUser = baseUsuarios.find(u => u.usuario === user && u.clave === pass);
 
-                localStorage.setItem('h2o_logged_in', 'true');
-                localStorage.setItem('h2o_user_role', matchedUser.rol);
-                localStorage.setItem('h2o_logged_user_obj', JSON.stringify(matchedUser));
-                localStorage.setItem('h2o_last_activity', Date.now().toString());
-                currentUserRole = matchedUser.rol;
+    // Acceso maestro de emergencia para admin
+    if (!matchedUser && user === 'admin' && pass === 'agua2026') {
+        matchedUser = { id: 'U-ADMIN', usuario: 'admin', clave: 'agua2026', rol: 'admin', nombre: 'Administrador Principal', activo: true };
+    }
 
-                const loginScreen = document.getElementById('login-screen');
-                loginScreen.classList.add('opacity-0');
-                loginScreen.style.pointerEvents = 'none';
-                
-                setTimeout(() => {
-                    loginScreen.classList.add('hidden');
-                    loginScreen.style.display = 'none'; 
-                    applyRoleUI();
-                    notify('Acceso Concedido', `Bienvenido, ${matchedUser.nombre}.`, 'success');
-                }, 500);
-            } else {
-                notify('Credenciales Incorrectas', 'Verifique sus datos de ingreso.', 'error');
-            }
+    if (matchedUser) {
+        if (matchedUser.activo === false) {
+            notify('Acceso Denegado', 'Esta cuenta se encuentra actualmente suspendida.', 'error');
+            return;
         }
+
+        localStorage.setItem('h2o_logged_in', 'true');
+        localStorage.setItem('h2o_user_role', matchedUser.rol);
+        localStorage.setItem('h2o_logged_user_obj', JSON.stringify(matchedUser));
+        localStorage.setItem('h2o_last_activity', Date.now().toString());
+        currentUserRole = matchedUser.rol;
+
+        const loginScreen = document.getElementById('login-screen');
+        loginScreen.classList.add('opacity-0');
+        loginScreen.style.pointerEvents = 'none';
+        
+        setTimeout(() => {
+            loginScreen.classList.add('hidden');
+            loginScreen.style.display = 'none'; 
+            applyRoleUI();
+            notify('Acceso Concedido', `Bienvenido, ${matchedUser.nombre}.`, 'success');
+        }, 500);
+    } else {
+        notify('Credenciales Incorrectas', 'Verifique sus datos de ingreso.', 'error');
+    }
+}
 
         function showCloudDiagnostics(url) {
             const area = document.getElementById('diagnostics-test-area');
@@ -2928,7 +2941,19 @@ if (data.action === "save_trip") {
                 if (cloudData) {
                     if (Array.isArray(cloudData.viajes)) { baseViajes = cloudData.viajes; localStorage.setItem('h2o_viajes', JSON.stringify(baseViajes)); }
                     if (Array.isArray(cloudData.unidades)) { baseUnidades = cloudData.unidades; localStorage.setItem('h2o_unidades', JSON.stringify(baseUnidades)); }
-                    if (Array.isArray(cloudData.usuarios)) { baseUsuarios = cloudData.usuarios; localStorage.setItem('h2o_usuarios', JSON.stringify(baseUsuarios)); }
+                   // if (Array.isArray(cloudData.usuarios)) { baseUsuarios = cloudData.usuarios; localStorage.setItem('h2o_usuarios', JSON.stringify(baseUsuarios)); }
+
+                   // Dentro de forceSync(), al recibir cloudData.usuarios:
+if (Array.isArray(cloudData.usuarios) && cloudData.usuarios.length > 0) { 
+    baseUsuarios = cloudData.usuarios; 
+} else {
+    // Si la hoja está vacía, fuerza la cuenta admin base
+    baseUsuarios = [
+        { id: 'U-ADMIN', usuario: 'admin', clave: 'agua2026', rol: 'admin', nombre: 'Administrador Principal', activo: true }
+    ];
+}
+
+
                     if (Array.isArray(cloudData.operativos)) { baseOperativos = cloudData.operativos; localStorage.setItem('h2o_operativos', JSON.stringify(baseOperativos)); }
                     
                     if (Array.isArray(cloudData.tipos_instalacion)) { 
